@@ -196,6 +196,35 @@
   }
   .timebar .fill.low { background: linear-gradient(90deg, #e08a5b, var(--clay-500)); }
 
+  .board.fever {
+    border-color: var(--sun-500);
+    box-shadow: 0 0 0 3px var(--sun-400), 0 14px 34px -16px var(--mound-shadow);
+  }
+  .fever-badge {
+    position: absolute;
+    top: -13px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 6;
+    background: linear-gradient(180deg, var(--sun-400), var(--sun-500));
+    color: #fff;
+    border-radius: 999px;
+    padding: 5px 16px;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    white-space: nowrap;
+    box-shadow: 0 6px 14px -6px var(--sun-500);
+    animation: pulse 0.6s ease-in-out infinite alternate;
+  }
+  .fever-badge[hidden] { display: none; }
+  @keyframes pulse {
+    from { transform: translateX(-50%) scale(1); }
+    to { transform: translateX(-50%) scale(1.08); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .fever-badge { animation: none; }
+  }
   .board {
     position: relative;
     display: grid;
@@ -475,16 +504,19 @@
   <div class="timebar"><div class="fill" id="timefill"></div></div>
 
   <div class="board" id="board">
+    <div class="fever-badge" id="feverBadge" hidden>✨ ポイント2ばい！ ✨</div>
     <div class="overlay" id="startOverlay">
       <div class="panel">
         <h2>どうぶつに えさをあげよう！</h2>
         <div class="animals-row">🐰🐹🐐🦔🦙</div>
         <p class="rule">
-          草むらから顔を出したどうぶつを<br>タップして えさやり！
+          草むらから顔を出したどうぶつを<br>タップして えさやり！<br>
+          にがすと コンボが とぎれるよ<br>
+          <strong style="color: var(--sun-500);">🦄が でたら 5びょうかん ポイント2ばい！</strong>
         </p>
         <div class="warn">
           🐝 ハチは タップきんし！
-          <span class="warn-big">−30点 ＆ コンボ 0 に…</span>
+          <span class="warn-big">−50点 ＆ コンボ 0 に…</span>
         </div>
         <p class="best" id="startBest"></p>
         <button class="cta" id="startBtn">えさやり スタート！</button>
@@ -531,15 +563,17 @@
 
   // 重み付きの出現テーブル（ふれあい動物園の顔ぶれ）
   const SPECIES = [
-    { emoji: "🐰", pts: 10, weight: 22 },
-    { emoji: "🐹", pts: 10, weight: 20 },
-    { emoji: "🐐", pts: 15, weight: 16 },
-    { emoji: "🐢", pts: 15, weight: 13 },
-    { emoji: "🦔", pts: 20, weight: 9 },
-    { emoji: "🦜", pts: 20, weight: 7 },
-    { emoji: "🦙", pts: 30, weight: 3 },
-    { emoji: "🐝", pts: -30, weight: 15, bee: true },
+    { emoji: "🐰", pts: 5, weight: 22 },
+    { emoji: "🐹", pts: 5, weight: 20 },
+    { emoji: "🐐", pts: 10, weight: 16 },
+    { emoji: "🐢", pts: 10, weight: 13 },
+    { emoji: "🦔", pts: 15, weight: 9 },
+    { emoji: "🦜", pts: 15, weight: 7 },
+    { emoji: "🦙", pts: 25, weight: 3 },
+    { emoji: "🦄", pts: 20, weight: 3, fever: true },
+    { emoji: "🐝", pts: -50, weight: 15, bee: true },
   ];
+  const FEVER_MS = 5000;
   const TOTAL_WEIGHT = SPECIES.reduce((s, a) => s + a.weight, 0);
 
   const board = document.getElementById("board");
@@ -550,6 +584,7 @@
   const startOverlay = document.getElementById("startOverlay");
   const resultOverlay = document.getElementById("resultOverlay");
   const promoOverlay = document.getElementById("promoOverlay");
+  const feverBadge = document.getElementById("feverBadge");
   const muteBtn = document.getElementById("muteBtn");
   let promoTimer = 0;
 
@@ -582,6 +617,7 @@
   let combo = 0;
   let endAt = 0;
   let nextSpawnAt = 0;
+  let feverUntil = 0;
   let rafId = 0;
 
   // ---- サウンド（短いピコピコ音のみ・ミュート可） ----
@@ -640,7 +676,13 @@
     m.hideAt = performance.now() + visible;
   }
 
-  function hide(m) {
+  function hide(m, escaped) {
+    // 逃げられたらコンボ切れ（えさやり済み・ゲーム外のクリーンアップは対象外）
+    if (escaped && running && m.species && !m.fed && !m.species.bee) {
+      if (combo >= 3) showFloat(m, "にげた…", true);
+      combo = 0;
+      updateHud();
+    }
     m.species = null;
     m.el.classList.remove("up", "fed");
   }
@@ -669,12 +711,20 @@
       m.hideAt = performance.now() + 350;
     } else {
       combo += 1;
-      const bonus = Math.min(combo - 1, 10); // コンボボーナス（上限+10）
-      score += s.pts + bonus;
+      const bonus = Math.min(Math.floor(combo / 3), 5); // コンボボーナス（3連ごとに+1・上限+5）
+      let gained = s.pts + bonus;
+      if (performance.now() < feverUntil) gained *= 2; // フィーバー中は2倍
+      score += gained;
       m.el.classList.add("fed");
       m.animalEl.textContent = "😋";
-      showFloat(m, "+" + (s.pts + bonus));
-      beep(420 + Math.min(combo, 12) * 40, 0.12, "sine", 0.09);
+      if (s.fever) {
+        feverUntil = performance.now() + FEVER_MS;
+        showFloat(m, "✨フィーバー！ +" + gained);
+        beep(880, 0.3, "triangle", 0.1);
+      } else {
+        showFloat(m, "+" + gained);
+        beep(420 + Math.min(combo, 12) * 40, 0.12, "sine", 0.09);
+      }
       m.hideAt = performance.now() + 300;
     }
     updateHud();
@@ -695,8 +745,12 @@
     timefill.style.width = ratio * 100 + "%";
     timefill.classList.toggle("low", remain <= 10000);
 
+    const inFever = now < feverUntil;
+    board.classList.toggle("fever", inFever);
+    feverBadge.hidden = !inFever;
+
     for (const m of mounds) {
-      if (m.species && now >= m.hideAt) hide(m);
+      if (m.species && now >= m.hideAt) hide(m, true);
     }
     if (now >= nextSpawnAt) {
       spawn();
@@ -715,6 +769,7 @@
     score = 0;
     combo = 0;
     running = true;
+    feverUntil = 0;
     startOverlay.hidden = true;
     resultOverlay.hidden = true;
     promoOverlay.hidden = true;
@@ -729,9 +784,9 @@
 
   function rankFor(s) {
     if (s < 0) return "🐝 ハチのごきげんとり…";
-    if (s >= 400) return "🏆 でんせつの飼育員";
-    if (s >= 260) return "🌟 ベテラン飼育員";
-    if (s >= 140) return "🍀 いちにんまえ飼育員";
+    if (s >= 500) return "🏆 でんせつの飼育員";
+    if (s >= 350) return "🌟 ベテラン飼育員";
+    if (s >= 180) return "🍀 いちにんまえ飼育員";
     return "🌱 みならい飼育員";
   }
 
