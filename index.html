@@ -110,7 +110,7 @@
   .wrap {
     max-width: 440px;
     margin: 0 auto;
-    padding: 14px 10px 28px;
+    padding: 14px 10px 96px;
     display: flex;
     flex-direction: column;
     gap: 14px;
@@ -519,6 +519,69 @@
     letter-spacing: 0.08em;
   }
 
+  /* 常時表示のPRバナー */
+  .ad-footer {
+    position: fixed;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    width: min(420px, calc(100% - 20px));
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: 16px;
+    text-decoration: none;
+    background: linear-gradient(135deg, var(--grass-600), var(--grass-400));
+    box-shadow: 0 10px 26px -10px rgba(55, 105, 45, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+  .ad-footer:focus-visible {
+    outline: 3px solid var(--sun-500);
+    outline-offset: 2px;
+  }
+  .ad-chip {
+    flex: none;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    color: var(--ink-800);
+    background: var(--sun-400);
+    border-radius: 4px;
+    padding: 3px 5px;
+  }
+  .ad-copy {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  .ad-title {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    color: #ffe9a8;
+    white-space: nowrap;
+  }
+  .ad-text {
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.35;
+    color: #fff;
+    transition: opacity 0.4s;
+  }
+  .ad-arrow {
+    flex: none;
+    font-size: 20px;
+    font-weight: 800;
+    color: rgba(255, 255, 255, 0.85);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ad-text { transition: none; }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .animal { transition: none; }
     .mound.angry { animation: none; }
@@ -604,6 +667,15 @@
 
   <footer class="note">あにもる会員サイト ミニゲーム（デモ）</footer>
 </div>
+
+<a class="ad-footer" id="adFooter" href="#" target="_blank" rel="noopener">
+  <span class="ad-chip">PR</span>
+  <span class="ad-copy">
+    <span class="ad-title">あにもる会員サイト</span>
+    <span class="ad-text" id="adText"></span>
+  </span>
+  <span class="ad-arrow">›</span>
+</a>
 
 <script>
 (() => {
@@ -919,6 +991,27 @@
   const best = loadBest();
   document.getElementById("startBest").textContent =
     best > 0 ? "ベストスコア: " + best : "はじめてのチャレンジ！";
+
+  // ---- 常時表示PRバナー（あにもる会員サイト・文言ローテーション） ----
+  // 会員サイトの本番URLが決まったらここを差し替え
+  const AD_URL = "https://animoru.com/";
+  const ADS = [
+    "来店ポイントをためて 限定ごほうびGET！",
+    "誕生月はクーポンも！ 会員登録はこちら",
+  ];
+  const adFooter = document.getElementById("adFooter");
+  const adText = document.getElementById("adText");
+  adFooter.href = AD_URL;
+  let adIdx = 0;
+  adText.textContent = ADS[0];
+  setInterval(() => {
+    adText.style.opacity = 0;
+    setTimeout(() => {
+      adIdx = (adIdx + 1) % ADS.length;
+      adText.textContent = ADS[adIdx];
+      adText.style.opacity = 1;
+    }, 400);
+  }, 8000);
 })();
 </script>
 </body>
