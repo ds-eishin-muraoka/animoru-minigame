@@ -512,7 +512,7 @@
         <p class="rule">
           草むらから顔を出したどうぶつを<br>タップして えさやり！<br>
           にがすと コンボが とぎれるよ<br>
-          <strong style="color: var(--sun-500);">🦄が でたら 5びょうかん ポイント2ばい！</strong>
+          <strong style="color: var(--sun-500);">🦄が でたら 4びょうかん ポイント2ばい！<br>🐝に さわると フィーバーも おしまい</strong>
         </p>
         <div class="warn">
           🐝 ハチは タップきんし！
@@ -570,11 +570,12 @@
     { emoji: "🦔", pts: 15, weight: 9 },
     { emoji: "🦜", pts: 15, weight: 7 },
     { emoji: "🦙", pts: 25, weight: 3 },
-    { emoji: "🦄", pts: 20, weight: 3, fever: true },
+    { emoji: "🦄", pts: 20, weight: 6, fever: true },
     { emoji: "🐝", pts: -50, weight: 15, bee: true },
   ];
-  const FEVER_MS = 5000;
+  const FEVER_MS = 4000;
   const TOTAL_WEIGHT = SPECIES.reduce((s, a) => s + a.weight, 0);
+  const FEVER_SPECIES = SPECIES.find((s) => s.fever);
 
   const board = document.getElementById("board");
   const scoreEl = document.getElementById("score");
@@ -618,6 +619,7 @@
   let endAt = 0;
   let nextSpawnAt = 0;
   let feverUntil = 0;
+  let feverSeen = false;
   let rafId = 0;
 
   // ---- サウンド（短いピコピコ音のみ・ミュート可） ----
@@ -649,9 +651,11 @@
   }
 
   function pickSpecies() {
-    let r = Math.random() * TOTAL_WEIGHT;
+    // 後半ほど🐝の出現率を上げる（重み15→25相当）
+    const beeBonus = Math.round(10 * elapsedRatio());
+    let r = Math.random() * (TOTAL_WEIGHT + beeBonus);
     for (const s of SPECIES) {
-      r -= s.weight;
+      r -= s.weight + (s.bee ? beeBonus : 0);
       if (r <= 0) return s;
     }
     return SPECIES[0];
@@ -665,14 +669,16 @@
     const empty = mounds.filter((m) => !m.species);
     if (!empty.length) return;
     const m = empty[Math.floor(Math.random() * empty.length)];
-    const s = pickSpecies();
+    // 折り返しを過ぎても🦄が未登場なら強制出現（毎ゲーム必ず1回は出る）
+    const s = (!feverSeen && elapsedRatio() > 0.5) ? FEVER_SPECIES : pickSpecies();
+    if (s.fever) feverSeen = true;
     m.species = s;
     m.fed = false;
     m.animalEl.textContent = s.emoji;
     m.el.classList.remove("fed", "angry");
     m.el.classList.add("up");
-    // 後半ほど表示時間を短く（1000ms → 550ms）
-    const visible = 1000 - 450 * elapsedRatio();
+    // 後半ほど表示時間を短く（1000ms → 500ms）
+    const visible = 1000 - 500 * elapsedRatio();
     m.hideAt = performance.now() + visible;
   }
 
@@ -705,8 +711,10 @@
     if (s.bee) {
       combo = 0;
       score += s.pts; // マイナス突入あり
+      const wasFever = performance.now() < feverUntil;
+      feverUntil = 0; // 🐝でフィーバーも強制終了
       m.el.classList.add("angry");
-      showFloat(m, "ぶ〜ん！ " + s.pts, true);
+      showFloat(m, (wasFever ? "フィーバー おわり… " : "ぶ〜ん！ ") + s.pts, true);
       beep(140, 0.25, "square", 0.06);
       m.hideAt = performance.now() + 350;
     } else {
@@ -754,10 +762,10 @@
     }
     if (now >= nextSpawnAt) {
       spawn();
-      // 中盤以降はときどき2匹同時に出す
-      if (elapsedRatio() > 0.35 && Math.random() < 0.4) spawn();
-      // 後半ほど出現間隔を短く（700ms → 330ms）＋ゆらぎ
-      const interval = 700 - 370 * elapsedRatio();
+      // 序盤過ぎからときどき2匹同時に出す
+      if (elapsedRatio() > 0.3 && Math.random() < 0.45) spawn();
+      // 後半ほど出現間隔を短く（700ms → 300ms）＋ゆらぎ
+      const interval = 700 - 400 * elapsedRatio();
       nextSpawnAt = now + interval * (0.75 + Math.random() * 0.5);
     }
 
@@ -770,6 +778,7 @@
     combo = 0;
     running = true;
     feverUntil = 0;
+    feverSeen = false;
     startOverlay.hidden = true;
     resultOverlay.hidden = true;
     promoOverlay.hidden = true;
@@ -793,6 +802,8 @@
   function finish() {
     running = false;
     cancelAnimationFrame(rafId);
+    board.classList.remove("fever");
+    feverBadge.hidden = true;
     for (const m of mounds) hide(m);
 
     const best = loadBest();
