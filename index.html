@@ -476,6 +476,25 @@
     cursor: pointer;
   }
   .panel.promo h2 { color: var(--grass-500); }
+  .panel.promo .mini-score {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 10px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--card-border);
+  }
+  .panel.promo .ms-num {
+    font-size: 30px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+  }
+  .panel.promo .ms-rank {
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--grass-500);
+  }
   .panel.promo .eyebrow {
     font-size: 11px;
     font-weight: 800;
@@ -565,6 +584,10 @@
     <div class="overlay" id="promoOverlay" hidden>
       <div class="panel promo">
         <button class="close" id="promoClose" aria-label="とじる">✕</button>
+        <div class="mini-score">
+          <span class="ms-num" id="promoScore">0</span>
+          <span class="ms-rank" id="promoRank"></span>
+        </div>
         <div class="eyebrow">まちのどうぶつえん</div>
         <h2>移動動物園「あにもる」</h2>
         <div class="animals-row">🐰🐐🦔🦜🐹</div>
@@ -848,10 +871,14 @@
 
   function rankFor(s) {
     if (s < 0) return "🐝 ハチのごきげんとり…";
-    if (s >= 500) return "🏆 でんせつの飼育員";
-    if (s >= 350) return "🌟 ベテラン飼育員";
-    if (s >= 180) return "🍀 いちにんまえ飼育員";
-    return "🌱 みならい飼育員";
+    if (s >= 1000) return "👑 でんせつの園長";
+    if (s >= 800) return "🏆 でんせつの飼育員";
+    if (s >= 650) return "🌟 スーパー飼育員";
+    if (s >= 500) return "🦁 ベテラン飼育員";
+    if (s >= 350) return "🍀 いちにんまえ飼育員";
+    if (s >= 250) return "🐾 かけだし飼育員";
+    if (s >= 120) return "🌱 みならい飼育員";
+    return "🌸 みらいの飼育員";
   }
 
   function finish() {
@@ -867,6 +894,8 @@
 
     document.getElementById("finalScore").textContent = score;
     document.getElementById("rank").textContent = rankFor(score);
+    document.getElementById("promoScore").textContent = score;
+    document.getElementById("promoRank").textContent = rankFor(score);
     document.getElementById("newBest").hidden = !isBest;
     document.getElementById("resultBest").textContent =
       "ベストスコア: " + Math.max(best, score);
