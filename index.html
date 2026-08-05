@@ -318,7 +318,15 @@
     transition: transform 0.16s cubic-bezier(0.34, 1.56, 0.64, 1);
     will-change: transform;
     pointer-events: none;
-    filter: drop-shadow(0 4px 4px rgba(0,0,0,0.2));
+    /* クリームのふちどりで緑系の動物（🐢など）も背景から浮かせる */
+    filter: drop-shadow(0 0 3px var(--cream-50)) drop-shadow(0 0 1px var(--cream-50))
+      drop-shadow(0 4px 4px rgba(0,0,0,0.25));
+  }
+  /* 🐢は茶色に色補正（リクガメ風・緑かぶり対策） */
+  .animal.tint-brown {
+    filter: sepia(1) saturate(1.7) hue-rotate(-16deg) brightness(0.95)
+      drop-shadow(0 0 3px var(--cream-50)) drop-shadow(0 0 1px var(--cream-50))
+      drop-shadow(0 4px 4px rgba(0,0,0,0.25));
   }
   .mound.up .animal { transform: translate(-50%, 0) scale(1); }
   .mound.fed .animal { transform: translate(-50%, -6%) scale(1.15); }
@@ -692,7 +700,7 @@
     { emoji: "🐰", pts: 5, weight: 22 },
     { emoji: "🐹", pts: 5, weight: 20 },
     { emoji: "🐐", pts: 10, weight: 16 },
-    { emoji: "🐖", pts: 10, weight: 13 },
+    { emoji: "🐢", pts: 10, weight: 13, tint: "brown" },
     { emoji: "🦔", pts: 15, weight: 9 },
     { emoji: "🐑", pts: 15, weight: 7 },
     { emoji: "🦙", pts: 25, weight: 3 },
@@ -826,6 +834,7 @@
     m.species = s;
     m.fed = false;
     m.animalEl.textContent = s.emoji;
+    m.animalEl.className = "animal" + (s.tint ? " tint-" + s.tint : "");
     m.el.classList.remove("fed", "angry");
     m.el.classList.add("up");
     // 後半ほど表示時間を短く（1000ms → 500ms）
@@ -897,6 +906,7 @@
       if (performance.now() < feverUntil) gained *= 2; // フィーバー中は2倍
       score += gained;
       m.el.classList.add("fed");
+      m.animalEl.className = "animal"; // 😋に色補正を引き継がない
       m.animalEl.textContent = "😋";
       if (s.fever) {
         feverUntil = performance.now() + FEVER_MS;
