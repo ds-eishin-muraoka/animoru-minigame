@@ -778,6 +778,8 @@
   muteBtn.addEventListener("click", () => {
     muted = !muted;
     muteBtn.textContent = muted ? "🔇" : "🔊";
+    if (muted) stopBgm();
+    else if (running) startBgm();
   });
   // iOS対策: 最初のユーザー操作でAudioContextを解錠
   // （WebKitはtouchend/clickでないと解錠されないことがあるため複数イベントで試行し、
@@ -803,6 +805,46 @@
   }
   ["pointerdown", "touchend", "click"].forEach((t) =>
     document.addEventListener(t, unlockAudio, true));
+
+  // ---- BGM（かわいい合成ループ／音源ファイル不要・ミュート連動） ----
+  let bgmTimer = null, bgmStep = 0;
+  const BGM_STEP_MS = 190;
+  // Cメジャー・ペンタトニックのゆかいなループ（0=休符）
+  const BGM_MELODY = [523.25, 659.25, 783.99, 659.25, 880.0, 783.99, 659.25, 0,
+                      587.33, 659.25, 783.99, 880.0, 783.99, 659.25, 587.33, 0];
+  const BGM_BASS   = [130.81, 0, 0, 0, 174.61, 0, 0, 0, 146.83, 0, 0, 0, 196.0, 0, 0, 0];
+  function bgmTone(freq, gainV, type, dur) {
+    if (!audioCtx || !freq) return;
+    try {
+      const t = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      osc.type = type;
+      osc.frequency.value = freq;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(gainV, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      osc.connect(g).connect(audioCtx.destination);
+      osc.start(t);
+      osc.stop(t + dur + 0.02);
+    } catch (e) { /* 無音で続行 */ }
+  }
+  function startBgm() {
+    stopBgm();
+    if (muted) return;
+    try {
+      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === "suspended") audioCtx.resume();
+    } catch (e) { return; }
+    bgmStep = 0;
+    bgmTimer = setInterval(() => {
+      if (muted) return;
+      bgmTone(BGM_MELODY[bgmStep % BGM_MELODY.length], 0.05, "triangle", BGM_STEP_MS / 1000 * 0.9);
+      bgmTone(BGM_BASS[bgmStep % BGM_BASS.length], 0.04, "sine", BGM_STEP_MS / 1000 * 1.6);
+      bgmStep++;
+    }, BGM_STEP_MS);
+  }
+  function stopBgm() { if (bgmTimer) { clearInterval(bgmTimer); bgmTimer = null; } }
 
   function loadBest() {
     const v = parseInt(localStorage.getItem(BEST_KEY) || "0", 10);
@@ -974,6 +1016,7 @@
     endAt = performance.now() + ROUND_SECONDS * 1000;
     nextSpawnAt = performance.now() + 400;
     beep(660, 0.15, "sine", 0.08);
+    startBgm();
     rafId = requestAnimationFrame(loop);
   }
 
@@ -991,6 +1034,7 @@
 
   function finish() {
     running = false;
+    stopBgm();
     cancelAnimationFrame(rafId);
     board.classList.remove("fever");
     feverBadge.hidden = true;
