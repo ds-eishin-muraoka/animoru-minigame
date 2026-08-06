@@ -809,10 +809,15 @@
   // ---- BGM（かわいい合成ループ／音源ファイル不要・ミュート連動） ----
   let bgmTimer = null, bgmStep = 0;
   const BGM_STEP_MS = 190;
-  // Cメジャー・ペンタトニックのゆかいなループ（0=休符）
+  // 通常BGM：Cメジャー・ペンタトニックのゆったりループ（0=休符）
   const BGM_MELODY = [523.25, 659.25, 783.99, 659.25, 880.0, 783.99, 659.25, 0,
                       587.33, 659.25, 783.99, 880.0, 783.99, 659.25, 587.33, 0];
   const BGM_BASS   = [130.81, 0, 0, 0, 174.61, 0, 0, 0, 146.83, 0, 0, 0, 196.0, 0, 0, 0];
+  // ボーナスBGM（🦄フィーバー中）：1オクターブ上の派手なアルペジオ＋ドライブするベース
+  const BGM_MELODY_BONUS = [1046.5, 1318.5, 1568.0, 1318.5, 1760.0, 1568.0, 1318.5, 1046.5,
+                            1174.7, 1318.5, 1568.0, 1760.0, 2093.0, 1760.0, 1568.0, 1318.5];
+  const BGM_BASS_BONUS   = [261.63, 0, 392.0, 0, 349.23, 0, 392.0, 0,
+                            293.66, 0, 440.0, 0, 392.0, 0, 493.88, 0];
   function bgmTone(freq, gainV, type, dur) {
     if (!audioCtx || !freq) return;
     try {
@@ -839,8 +844,12 @@
     bgmStep = 0;
     bgmTimer = setInterval(() => {
       if (muted) return;
-      bgmTone(BGM_MELODY[bgmStep % BGM_MELODY.length], 0.05, "triangle", BGM_STEP_MS / 1000 * 0.9);
-      bgmTone(BGM_BASS[bgmStep % BGM_BASS.length], 0.04, "sine", BGM_STEP_MS / 1000 * 1.6);
+      // 🦄フィーバー中はボーナスBGMに自動チェンジ（🐝や時間切れで通常へ自動復帰）
+      const bonus = performance.now() < feverUntil;
+      const mel = bonus ? BGM_MELODY_BONUS : BGM_MELODY;
+      const bass = bonus ? BGM_BASS_BONUS : BGM_BASS;
+      bgmTone(mel[bgmStep % mel.length], bonus ? 0.06 : 0.045, "triangle", BGM_STEP_MS / 1000 * 0.9);
+      bgmTone(bass[bgmStep % bass.length], bonus ? 0.05 : 0.04, "sine", BGM_STEP_MS / 1000 * 1.6);
       bgmStep++;
     }, BGM_STEP_MS);
   }
@@ -959,7 +968,10 @@
         setTimeout(() => beep(1180, 0.25, "triangle", 0.1), 180);
       } else {
         showFloat(m, "+" + gained);
-        beep(420 + Math.min(combo, 12) * 40, 0.12, "sine", 0.09);
+        // 効果音はBGM（やわらかいtriangle）と混ざらないよう、明るいスクエア波の“ポコッ↑”に
+        const f = 520 + Math.min(combo, 12) * 45;
+        beep(f, 0.08, "square", 0.11);
+        setTimeout(() => beep(f * 1.5, 0.06, "square", 0.07), 55);
       }
       m.hideAt = performance.now() + 300;
     }
