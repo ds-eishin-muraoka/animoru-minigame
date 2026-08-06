@@ -124,9 +124,11 @@
   }
   .logo {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: 8px;
+    min-width: 0;
   }
+  .brand-logo { height: 26px; width: auto; display: block; flex: none; }
   .logo .brand {
     font-size: 13px;
     font-weight: 700;
@@ -615,7 +617,7 @@
 <div class="wrap">
   <header class="top">
     <div class="logo">
-      <span class="brand">あにもる</span>
+      <img class="brand-logo" src="logo-animoru.png" alt="あにもる" draggable="false">
       <h1>もぐもぐパーク</h1>
     </div>
     <button class="mute" id="muteBtn" aria-label="音を切り替え">🔊</button>
